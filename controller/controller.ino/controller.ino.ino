@@ -26,6 +26,8 @@ int apsMax = 850;
 
 int tps0;
 int tps1;
+int tps0Min = 267;
+int tps0Max = 927;
 int tps1Min = 800;
 int tps1Max = 160;
 
@@ -54,8 +56,9 @@ void setup() {
   pinMode(TPS0PIN, INPUT);
   pinMode(TPS1PIN, INPUT);
 
-  apsMOE = (apsMax - apsMin) / MARGIN_OF_ERROR;
-  tpsMOE = (tps1Min - tps1Max) / MARGIN_OF_ERROR;
+  apsMOE = (apsMax - apsMin) / *.05;
+//  tpsMOE = (tps1Min - tps1Max) / MARGIN_OF_ERROR;
+  tpsMOE = 1024 *.05;
 
   // Set initial rotation direction
   digitalWrite(in1, LOW);
@@ -65,25 +68,16 @@ void setup() {
 void loop() {
   aps0 = analogRead(APS0PIN);
   aps1 = analogRead(APS1PIN);
+  tps0 = analogRead(TPS0PIN);
   tps1 = analogRead(TPS1PIN);
 
-
-
   int pedalPos = getAPSval(aps0, aps1);
-
-
-  int throtPos = getTPSval(tps1, tps1);
-
-//    Serial.println(throtPos);
-
-  //  int diff = pedalPos - throtPos; //not sure on this
-
-//  Serial.println(pedalPos);
+  int throtPos = getTPSval(tps0, tps1);
 
   if ( pedalPos > throtPos) {
     pwmOutput = outputMax;
   } else if (throtPos > pedalPos) {
-    pwmOutput = pedalPos*.9;
+    pwmOutput = pedalPos * .9;
   } else {
     pwmOutput = pedalPos;
   }
@@ -100,11 +94,10 @@ int getAPSval(int p0, int p1) {
     apsMax = max(p0, p1);
   }
 
-
   int diff = abs(p1 - p0);
 
   if (diff > apsMOE) {
-    //    return pOopsie + 1;
+    newAps = 0;         //has an oopsie happened?
     newAps = outputMin;
   } else if (p0 < pClosedThrsh) {
     newAps = outputMin;
@@ -114,15 +107,6 @@ int getAPSval(int p0, int p1) {
     newAps = map(p1, apsMin, apsMax, outputMin, outputMax);
   }
 
-//  if (pedalPos != newAps) {
-    //        Serial.print ("Pedal POS changed to : ");
-    //        Serial.println(newAps);
-    //        Serial.println(p0);
-    //        Serial.println(p1);
-//
-//    pedalPos = newAps;
-//  }
-
   return newAps;
 }
 
@@ -130,42 +114,18 @@ int getTPSval(int t0, int t1) {
   int newTp;
 
   //a crude calibration of the default values
-  if (t1 > tps1Min) {
-    tps1Min = t1;
-  } else if (t1 < tps1Max) {
-    tps1Max = t1;
+  if (t0 < tps0Min) {
+    tps0Min = t0;
+  } else if (t0 > tps0Max) {
+    tps0Max = t0;
   }
 
+  if ((t1 + t0) < (1024 - tpsMOE)) {
+    tOopsie = tOopsie + 1;
+  } else {
+    newTp = map(t0, tps0Min, tps0Max, outputMin, outputMax);
+  }
 
-  //  if ((t1 + t0) < 1024){
-  //    tOopsie = tOopsie + 1;
-  //  } else {
-  newTp = map(t1, tps1Min, tps1Max, outputMin, outputMax);
-  //  }
-Serial.println(t1);
-//  if (throttlePos != newTp) {
-//        Serial.print("TPS Changed pos : ");
-//        Serial.println(newTp);
-//
-//
-//    throttlePos = newTp;
-//  }
-  
   return newTp;
 }
-
-//int getTPSdif(int t0, int t1) {
-//  //a crude calibration of the default values
-//  if (t1 > tps1Min) {
-//    tps1Min = t1;
-//  } else if (t1 < tps1Max) {
-//    tps1Max = t1;
-//  }
-//
-//  //  if ((t1 + t0) < 1024){
-//  //    tOopsie = tOopsie + 1;
-//  //  } else {
-//  return map(t1, tps1Min, tps1Max, 0, 512);
-//  //  }
-//}
 
